@@ -19,6 +19,8 @@ def is_typecheckable(t: Any) -> bool:
         return True
     if getattr(t, "__class__", None) == EnumMeta:
         return is_typecheckable(t._member_type_)
+    if hasattr(t, "__supertype__"):
+        return is_typecheckable(t.__supertype__)
     if hasattr(t, "__origin__") and hasattr(t, "__args__"):
         if t.__origin__ in (list, tuple, set, frozenset, dict, deque, OrderedDict, Union, Optional,
                             Mapping, List, Dict, Tuple, Set, FrozenSet, Deque):
