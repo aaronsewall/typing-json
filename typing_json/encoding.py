@@ -1,6 +1,7 @@
 """ Encoding utilities """
+from enum import EnumMeta
 
-from typing import Any, Union, Optional, Tuple
+from typing import Any, Deque, Dict, FrozenSet, List, Optional, Set, Tuple, Union
 from collections import deque, OrderedDict
 from collections.abc import Mapping
 from typing_extensions import Literal
@@ -23,8 +24,12 @@ def is_json_encodable(t: Any) -> bool:
     if is_namedtuple(t):
         field_types = getattr(t, "_field_types")
         return all(is_json_encodable(field_types[field]) for field in field_types)
+    if hasattr(t, "__supertype__"):
+        return True
+    if getattr(t, "__class__", None) == EnumMeta:
+        return is_json_encodable(t._member_type_)
     if hasattr(t, "__origin__") and hasattr(t, "__args__"):
-        if t.__origin__ in (list, set, frozenset, deque, Optional):
+        if t.__origin__ in (list, set, frozenset, deque, Optional, List, Set, FrozenSet, Deque):
             return is_json_encodable(t.__args__[0])
         if t.__origin__ is tuple:
             if len(t.__args__) == 2 and t.__args__[1] is ...: # pylint:disable=no-else-return
@@ -33,7 +38,7 @@ def is_json_encodable(t: Any) -> bool:
                 return all(is_json_encodable(s) for s in t.__args__)
         if t.__origin__ is Union:
             return all(is_json_encodable(s) for s in t.__args__)
-        if t.__origin__ in (dict, OrderedDict, Mapping):
+        if t.__origin__ in (dict, OrderedDict, Mapping, Dict):
             return t.__args__[0] == str and is_json_encodable(t.__args__[1])
         if t.__origin__ is Literal:
             return all(isinstance(s, JSON_BASE_TYPES+(type(None),)) for s in t.__args__)

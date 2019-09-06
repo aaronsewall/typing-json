@@ -1,6 +1,7 @@
 """ Decoding utilities """
+from enum import EnumMeta
 
-from typing import Any, Union
+from typing import Any, List, Union
 from collections import deque, OrderedDict
 from collections.abc import Mapping
 from typing_extensions import Literal
@@ -8,6 +9,7 @@ from typing_json.typechecking import is_instance, is_namedtuple
 from typing_json.encoding import JSON_BASE_TYPES, is_json_encodable
 
 _UNREACHABLE_ERROR_MSG = "Should never reach this point, please open an issue on GitHub."
+
 
 def from_json_obj(obj: Any, t: Any) -> Any:
     """ Converts an object of json standard type to json encodable type. """
@@ -26,19 +28,21 @@ def from_json_obj(obj: Any, t: Any) -> Any:
         if obj is not None:
             raise TypeError("Object %s is not null (t=%s)."%(str(obj), str(t)))
         return ...
+    if hasattr(t, "__supertype__"):
+        return t(obj)
     if is_namedtuple(t):
-        if not isinstance(obj, (dict, OrderedDict, list)):
+        if not isinstance(obj, (dict, OrderedDict, list, List)):
             raise TypeError("Object %s is not (ordered) dictionary or list (t=%s)."%(str(obj), str(t))) # pylint:disable=line-too-long
         fields = getattr(t, "_fields")
         field_types = getattr(t, "_field_types")
         field_defaults = getattr(t, "_field_defaults")
-        if isinstance(obj, list):
+        if isinstance(obj, (list, List)):
             if len(fields) != len(obj):
                 raise TypeError("Object %s does not provide the right number of values for a namedtuple.")
             return_val = t(*tuple(from_json_obj(obj[i] if i < len(obj) else field_defaults[field], field_types[field]) for i, field in enumerate(fields))) # pylint:disable=line-too-long
             assert is_instance(return_val, t)
             return return_val
-        converted_dict: OrderedDict() = {} # type:ignore
+        converted_dict: OrderedDict() = {}  # type:ignore
         if set(obj.keys()).union(set(field_defaults.keys())) != set(field_types.keys()):
             key_diff = set(obj.keys()).union(set(field_defaults.keys())) - set(field_types.keys())
             if key_diff:
@@ -54,12 +58,14 @@ def from_json_obj(obj: Any, t: Any) -> Any:
         return_val = t(**converted_dict)
         assert is_instance(return_val, t)
         return return_val
+    if getattr(t, "__class__", None) == EnumMeta:
+        return t(obj)
     if hasattr(t, "__origin__") and hasattr(t, "__args__"): # generics
         if t.__origin__ is Union:
             for s in t.__args__:
                 try:
                     return_val = from_json_obj(obj, s)
-                    assert is_instance(return_val, t)
+                    assert hasattr(s, "__supertype__") or is_instance(return_val, t)
                     return return_val
                 except TypeError:
                     continue
@@ -68,7 +74,7 @@ def from_json_obj(obj: Any, t: Any) -> Any:
             if not is_instance(obj, t):
                 raise TypeError("Object %s is not allowed (t=%s)."%(str(obj), str(t)))
             return obj
-        if t.__origin__ is list:
+        if t.__origin__ in [list, List]:
             if not isinstance(obj, list):
                 raise TypeError("Object %s is not list (t=%s)."%(str(obj), str(t)))
             return_val = list(from_json_obj(x, t.__args__[0]) for x in obj)

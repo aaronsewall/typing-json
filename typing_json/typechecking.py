@@ -1,6 +1,7 @@
 """ Dynamic typechecking utilities. """
+from enum import EnumMeta
 
-from typing import Any, Union, Optional
+from typing import Any, Deque, Dict, FrozenSet, List, Optional, Set, Tuple, Union
 from collections import deque, OrderedDict
 from collections.abc import Mapping
 from typing_extensions import Literal
@@ -16,9 +17,11 @@ def is_typecheckable(t: Any) -> bool:
         return True
     if t in (None, type(None), ..., NotImplemented, Any):
         return True
+    if getattr(t, "__class__", None) == EnumMeta:
+        return is_typecheckable(t._member_type_)
     if hasattr(t, "__origin__") and hasattr(t, "__args__"):
-        if t.__origin__ in (list, tuple, set, frozenset, dict,
-                            deque, OrderedDict, Union, Optional, Mapping):
+        if t.__origin__ in (list, tuple, set, frozenset, dict, deque, OrderedDict, Union, Optional,
+                            Mapping, List, Dict, Tuple, Set, FrozenSet, Deque):
             return all(is_typecheckable(s) for s in t.__args__)
         if t.__origin__ is Literal:
             return all(isinstance(s, TYPECHECKABLE_BASE_TYPES) or s in (None, ..., NotImplemented, Any) for s in t.__args__) # pylint:disable=line-too-long
@@ -48,12 +51,16 @@ def is_instance(obj: Any, t: Any) -> bool:
             if not is_instance(field_val, field_types[field]):
                 return False
         return True
+    if hasattr(t, "__supertype__"):
+        return is_instance(obj, t.__supertype__)
+    if getattr(t, "__class__", None) == EnumMeta:
+        return isinstance(obj, t)
     if hasattr(t, "__origin__") and hasattr(t, "__args__"): # generics
         if t.__origin__ is Union: # includes Optional
             return any(is_instance(obj, s) for s in t.__args__)
         if t.__origin__ is Literal:
             return any(obj is s for s in t.__args__)
-        if t.__origin__ is list: # List[_T]
+        if t.__origin__ in (list, List):  # List[_T]
             if not isinstance(obj, list):
                 return False
             return all(is_instance(x, t.__args__[0]) for x in obj)
