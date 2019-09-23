@@ -21,7 +21,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     package_data={"": ["LICENSE", "README.md"],
-                  "typing_json": ["typing_json/py.typed"],
+                  "typing_json": ["py.typed"],
                  },
     include_package_data=True
 )
