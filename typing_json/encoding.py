@@ -39,7 +39,7 @@ def is_json_encodable(t: Any) -> bool:
         if t.__origin__ is Union:
             return all(is_json_encodable(s) for s in t.__args__)
         if t.__origin__ in (dict, OrderedDict, Mapping, Dict):
-            return t.__args__[0] == str and is_json_encodable(t.__args__[1])
+            return all(is_json_encodable(s) for s in t.__args__)
         if t.__origin__ is Literal:
             return all(isinstance(s, JSON_BASE_TYPES+(type(None),)) for s in t.__args__)
     return False
@@ -55,6 +55,8 @@ def to_json_obj(obj: Any, t: Any) -> Any:
         return obj
     if t in (None, type(None), ...):
         return None
+    if hasattr(t, "__supertype__"):
+        return obj
     if is_namedtuple(t):
         field_types = getattr(t, "_field_types")
         json_dict = OrderedDict() # type:ignore
@@ -69,7 +71,7 @@ def to_json_obj(obj: Any, t: Any) -> Any:
             raise AssertionError(_UNREACHABLE_ERROR_MSG) # pragma: no cover
         if t.__origin__ is Literal:
             return obj
-        if t.__origin__ in (list, set, frozenset, deque):
+        if t.__origin__ in (list, set, frozenset, deque, List):
             return [to_json_obj(x, t.__args__[0]) for x in obj]
         if t.__origin__ is tuple:
             if len(t.__args__) == 2 and t.__args__[1] is ...: # pylint:disable=no-else-return

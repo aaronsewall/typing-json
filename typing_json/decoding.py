@@ -1,7 +1,7 @@
 """ Decoding utilities """
 from enum import EnumMeta
 
-from typing import Any, List, Union
+from typing import Any, List, Union, Dict
 from collections import deque, OrderedDict
 from collections.abc import Mapping
 from typing_extensions import Literal
@@ -31,7 +31,7 @@ def from_json_obj(obj: Any, t: Any) -> Any:
     if hasattr(t, "__supertype__"):
         return t(obj)
     if is_namedtuple(t):
-        if not isinstance(obj, (dict, OrderedDict, list, List)):
+        if not isinstance(obj, (dict, OrderedDict, list, List, Dict)):
             raise TypeError("Object %s is not (ordered) dictionary or list (t=%s)."%(str(obj), str(t))) # pylint:disable=line-too-long
         fields = getattr(t, "_fields")
         field_types = getattr(t, "_field_types")
@@ -111,8 +111,8 @@ def from_json_obj(obj: Any, t: Any) -> Any:
                 return_val = tuple(from_json_obj(x, t.__args__[i]) for i, x in enumerate(obj))
                 assert is_instance(return_val, t)
                 return return_val
-        if t.__origin__ in (dict, Mapping):
-            if not isinstance(obj, (dict, OrderedDict)):
+        if t.__origin__ in (dict, Mapping, Dict):
+            if not isinstance(obj, (dict, OrderedDict, Dict)):
                 raise TypeError("Object %s is not dict or OrderedDict (t=%s)."%(str(obj), str(t)))
             converted_dict = dict() # type:ignore
             for field in obj:

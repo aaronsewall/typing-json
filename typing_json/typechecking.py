@@ -83,8 +83,8 @@ def is_instance(obj: Any, t: Any) -> bool:
             if not isinstance(obj, frozenset):
                 return False
             return all(is_instance(x, t.__args__[0]) for x in obj)
-        if t.__origin__ is dict: # Dict[_T, _S]
-            if not isinstance(obj, (dict)):
+        if t.__origin__ in (dict, Dict): # Dict[_T, _S]
+            if not isinstance(obj, (dict, Dict)):
                 return False
             if not all(is_instance(x, t.__args__[0]) for x in obj):
                 return False
